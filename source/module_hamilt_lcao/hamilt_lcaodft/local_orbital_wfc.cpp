@@ -40,7 +40,7 @@ void Local_Orbital_wfc::gamma_file(psi::Psi<double>* psid, elecstate::ElecState*
 
     //allocate psi
     int ncol = this->ParaV->ncol_bands;
-    if (GlobalV::KS_SOLVER == "genelpa" || GlobalV::KS_SOLVER == "lapack_gvx" || GlobalV::KS_SOLVER == "scalapack_gvx"
+    if (GlobalV::KS_SOLVER == "genelpa" || GlobalV::KS_SOLVER == "lapack_gvx" || GlobalV::KS_SOLVER == "scalapack_gvx" || GlobalV::KS_SOLVER == "cg_in_lcao"
 #ifdef __CUSOLVER_LCAO
         || GlobalV::KS_SOLVER == "cusolver"
 #endif
@@ -223,7 +223,7 @@ void Local_Orbital_wfc::wfc_2d_to_grid(const int istep,
                                        const ModuleBase::matrix& wg)
 {
     ModuleBase::TITLE(" Local_Orbital_wfc", "wfc_2d_to_grid");
-    ModuleBase::timer::tick(" Local_Orbital_wfc","wfc_2d_to_grid");
+    ModuleBase::timer::tick("Local_Orbital_wfc","wfc_2d_to_grid");
 
     const Parallel_Orbitals* pv = this->ParaV;
     const int inc = 1;
@@ -319,7 +319,7 @@ void Local_Orbital_wfc::wfc_2d_to_grid(const int istep,
         delete[] ctot;
     }
     delete[] work;
-    ModuleBase::timer::tick(" Local_Orbital_wfc","wfc_2d_to_grid");
+    ModuleBase::timer::tick("Local_Orbital_wfc","wfc_2d_to_grid");
 }
 
 void Local_Orbital_wfc::wfc_2d_to_grid(const int istep,
@@ -331,8 +331,8 @@ void Local_Orbital_wfc::wfc_2d_to_grid(const int istep,
                                        const ModuleBase::matrix& wg,
                                        const std::vector<ModuleBase::Vector3<double>>& kvec_c)
 {
-    ModuleBase::TITLE(" Local_Orbital_wfc", "wfc_2d_to_grid");
-    ModuleBase::timer::tick(" Local_Orbital_wfc","wfc_2d_to_grid");
+    ModuleBase::TITLE("Local_Orbital_wfc", "wfc_2d_to_grid");
+    ModuleBase::timer::tick("Local_Orbital_wfc","wfc_2d_to_grid");
 
     const Parallel_Orbitals* pv = this->ParaV;
     const int inc = 1;
@@ -430,6 +430,6 @@ void Local_Orbital_wfc::wfc_2d_to_grid(const int istep,
         delete[] ctot;
     }
     delete[] work;
-    ModuleBase::timer::tick(" Local_Orbital_wfc","wfc_2d_to_grid");
+    ModuleBase::timer::tick("Local_Orbital_wfc","wfc_2d_to_grid");
 }
 #endif

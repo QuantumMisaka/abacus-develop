@@ -1,5 +1,6 @@
 #include "esolver_ks_lcao.h"
 
+#include "module_base/global_variable.h"
 #include "module_io/dos_nao.h"
 #include "module_io/mulliken_charge.h"
 #include "module_io/nscf_band.h"
@@ -7,6 +8,8 @@
 #include "module_io/write_istate_info.h"
 #include "module_io/write_proj_band_lcao.h"
 #include "module_io/output_log.h"
+#include "module_io/to_qo.h"
+#include "module_io/write_Vxc.hpp"
 
 //--------------temporary----------------------------
 #include "module_base/global_function.h"
@@ -306,7 +309,7 @@ namespace ModuleESolver
     GlobalV::ofs_running << " !FINAL_ETOT_IS " << this->pelec->f_en.etot * ModuleBase::Ry_to_eV << " eV" << std::endl;
     GlobalV::ofs_running << " --------------------------------------------\n\n" << std::endl;
 
-    if (INPUT.out_dos != 0 || INPUT.out_band != 0 || INPUT.out_proj_band != 0)
+    if (INPUT.out_dos != 0 || INPUT.out_band[0] != 0 || INPUT.out_proj_band != 0)
     {
         GlobalV::ofs_running << "\n\n\n\n";
         GlobalV::ofs_running << " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << std::endl;
@@ -328,7 +331,7 @@ namespace ModuleESolver
 
     int nspin0 = (GlobalV::NSPIN == 2) ? 2 : 1;
 
-    if (INPUT.out_band) // pengfei 2014-10-13
+    if (INPUT.out_band[0]) // pengfei 2014-10-13
     {
         int nks = 0;
         if (nspin0 == 1)
@@ -345,7 +348,15 @@ namespace ModuleESolver
             std::stringstream ss2;
             ss2 << GlobalV::global_out_dir << "BANDS_" << is + 1 << ".dat";
             GlobalV::ofs_running << "\n Output bands in file: " << ss2.str() << std::endl;
-            ModuleIO::nscf_band(is, ss2.str(), nks, GlobalV::NBANDS, 0.0, this->pelec->ekb, this->kv, &(GlobalC::Pkpoints));
+            ModuleIO::nscf_band(is, 
+                                ss2.str(), 
+                                nks, 
+                                GlobalV::NBANDS, 
+                                0.0, 
+                                INPUT.out_band[1],
+                                this->pelec->ekb, 
+                                this->kv, 
+                                &(GlobalC::Pkpoints));
         }
     } // out_band
 
@@ -414,23 +425,36 @@ namespace ModuleESolver
 
     // * reading the localized orbitals/projectors
     // * construct the interpolation tables.
-    this->orb_con.read_orb_first(GlobalV::ofs_running,
-                                 GlobalC::ORB,
-                                 ucell.ntype,
-                                 GlobalV::global_orbital_dir,
-                                 ucell.orbital_fn,
-                                 ucell.descriptor_file,
-                                 ucell.lmax,
-                                 inp.lcao_ecut,
-                                 inp.lcao_dk,
-                                 inp.lcao_dr,
-                                 inp.lcao_rmax,
-                                 GlobalV::deepks_setorb,
-                                 inp.out_mat_r,
-                                 GlobalV::CAL_FORCE,
-                                 GlobalV::MY_RANK);
+
+    two_center_bundle.reset(new TwoCenterBundle);
+    two_center_bundle->build_orb(ucell.ntype, ucell.orbital_fn);
+    two_center_bundle->build_alpha(GlobalV::deepks_setorb, &ucell.descriptor_file);
+    // currently deepks only use one descriptor file, so cast bool to int is fine
+
+    //this->orb_con.read_orb_first(GlobalV::ofs_running,
+    //                             GlobalC::ORB,
+    //                             ucell.ntype,
+    //                             GlobalV::global_orbital_dir,
+    //                             ucell.orbital_fn,
+    //                             ucell.descriptor_file,
+    //                             ucell.lmax,
+    //                             inp.lcao_ecut,
+    //                             inp.lcao_dk,
+    //                             inp.lcao_dr,
+    //                             inp.lcao_rmax,
+    //                             GlobalV::deepks_setorb,
+    //                             inp.out_mat_r,
+    //                             GlobalV::CAL_FORCE,
+    //                             GlobalV::MY_RANK);
+
+    // TODO Due to the omnipresence of GlobalC::ORB, we still have to rely
+    // on the old interface for now.
+    two_center_bundle->to_LCAO_Orbitals(GlobalC::ORB,
+            inp.lcao_ecut, inp.lcao_dk, inp.lcao_dr, inp.lcao_rmax);
 
     ucell.infoNL.setupNonlocal(ucell.ntype, ucell.atoms, GlobalV::ofs_running, GlobalC::ORB);
+
+    two_center_bundle->build_beta(ucell.ntype, ucell.infoNL.Beta);
 
     int Lmax = 0;
 #ifdef __EXX
@@ -448,16 +472,7 @@ namespace ModuleESolver
                                  ucell.infoNL.nproj,
                                  ucell.infoNL.Beta);
 #else
-    //-------------------------------------
-    //  new two-center integral module
-    //-------------------------------------
-    two_center_bundle.reset(new TwoCenterBundle);
-
-    // NOTE: ucell.orbital_fn does not include the path,
-    // GlobalV::global_orbital_dir & GlobalV::global_pseudo_dir is prepended inside build()
-    two_center_bundle->build(ucell.ntype, ucell.orbital_fn, ucell.infoNL.Beta,
-            GlobalV::deepks_setorb, &ucell.descriptor_file);
-    // currently deepks only use one descriptor file, so use bool as int
+    two_center_bundle->tabulate();
 
     // transfer the ownership to UOT
     // this is a temporary solution during refactoring
@@ -476,8 +491,31 @@ namespace ModuleESolver
     template <typename TK, typename TR>
     void ESolver_KS_LCAO<TK, TR>::eachiterinit(const int istep, const int iter)
 {
-    if (iter == 1)
+    if (iter == 1 || iter == GlobalV::MIXING_RESTART)
+    {
+        if (iter == GlobalV::MIXING_RESTART) // delete mixing and re-construct it to restart 
+        {
+            this->p_chgmix->set_mixing(GlobalV::MIXING_MODE,
+                                GlobalV::MIXING_BETA,
+                                GlobalV::MIXING_NDIM,
+                                GlobalV::MIXING_GG0,
+                                GlobalV::MIXING_TAU,
+                                GlobalV::MIXING_BETA_MAG,
+                                GlobalV::MIXING_GG0_MAG,
+                                GlobalV::MIXING_GG0_MIN,
+                                GlobalV::MIXING_ANGLE,
+                                GlobalV::MIXING_DMR);
+            // allocate memory for dmr_mdata
+            if (GlobalV::MIXING_DMR)
+            {
+                const elecstate::DensityMatrix<TK, double>* dm
+                    = dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM();
+                int nnr_tmp = dm->get_DMR_pointer(1)->get_nnr();
+                this->p_chgmix->allocate_mixing_dmr(nnr_tmp);
+            }
+        }
         this->p_chgmix->mix_reset();
+    }
 
     // mohan update 2012-06-05
     this->pelec->f_en.deband_harris = this->pelec->cal_delta_eband();
@@ -531,9 +569,9 @@ namespace ModuleESolver
 #ifdef __EXX
     // calculate exact-exchange
     if (GlobalC::exx_info.info_ri.real_number)
-        this->exd->exx_eachiterinit(*dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(), *(this->p_chgmix), iter);
+        this->exd->exx_eachiterinit(*dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(), iter);
     else
-        this->exc->exx_eachiterinit(*dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(), *(this->p_chgmix), iter);
+        this->exc->exx_eachiterinit(*dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(), iter);
 #endif
 
     if (GlobalV::dft_plus_u)
@@ -575,6 +613,13 @@ namespace ModuleESolver
 {
     // save input rho
         this->pelec->charge->save_rho_before_sum_band();
+        // save density matrix for mixing
+        if (GlobalV::MIXING_RESTART > 0 && GlobalV::MIXING_DMR && iter >= GlobalV::MIXING_RESTART)
+        {
+            elecstate::DensityMatrix<TK, double>* dm
+                = dynamic_cast<elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM();
+            dm->save_DMR();
+        }
 
         // using HSolverLCAO<TK>::solve()
     if (this->phsol != nullptr)
@@ -669,13 +714,13 @@ namespace ModuleESolver
     // print Hamiltonian and Overlap matrix
     if (this->conv_elec)
     {
-        if (!GlobalV::GAMMA_ONLY_LOCAL && hsolver::HSolverLCAO<TK>::out_mat_hs)
+        if (!GlobalV::GAMMA_ONLY_LOCAL && hsolver::HSolverLCAO<TK>::out_mat_hs[0])
         {
             this->UHM.GK.renew(true);
         }
         for (int ik = 0; ik < this->kv.nks; ++ik)
         {
-            if (hsolver::HSolverLCAO<TK>::out_mat_hs)
+            if (hsolver::HSolverLCAO<TK>::out_mat_hs[0])
             {
                 this->p_hamilt->updateHk(ik);
             }
@@ -685,18 +730,35 @@ namespace ModuleESolver
             {
                 hamilt::MatrixBlock<TK> h_mat, s_mat;
                 this->p_hamilt->matrix(h_mat, s_mat);
-                ModuleIO::saving_HS(istep,
-                                    h_mat.p,
-                                    s_mat.p,
-                                    bit,
-                    hsolver::HSolverLCAO<TK>::out_mat_hs,
-                                    "data-" + std::to_string(ik),
-                                    this->LOWF.ParaV[0],
-                                    1); // LiuXh, 2017-03-21
+                if (hsolver::HSolverLCAO<TK>::out_mat_hs[0])
+                {
+                    ModuleIO::save_mat(istep, 
+                                       h_mat.p, 
+                                       GlobalV::NLOCAL, 
+                                       bit,
+                                       hsolver::HSolverLCAO<TK>::out_mat_hs[1],
+                                       1, 
+                                       GlobalV::out_app_flag, 
+                                       "H", 
+                                       "data-" + std::to_string(ik), 
+                                       *this->LOWF.ParaV, 
+                                       GlobalV::DRANK);
+                    ModuleIO::save_mat(istep, 
+                                       s_mat.p, 
+                                       GlobalV::NLOCAL, 
+                                       bit,
+                                       hsolver::HSolverLCAO<TK>::out_mat_hs[1],
+                                       1, 
+                                       GlobalV::out_app_flag, 
+                                       "S", 
+                                       "data-" + std::to_string(ik), 
+                                       *this->LOWF.ParaV, 
+                                       GlobalV::DRANK);
+                }
             }
         }
     }
-
+    // print wavefunctions
     if (this->conv_elec)
     {
         if (elecstate::ElecStateLCAO<TK>::out_wfc_lcao)
@@ -713,7 +775,6 @@ namespace ModuleESolver
         if (elecstate::ElecStateLCAO<TK>::out_wfc_lcao)
             elecstate::ElecStateLCAO<TK>::out_wfc_flag = 0;
     }
-
     // (9) Calculate new potential according to new Charge Density.
 
     if (this->conv_elec || iter == GlobalV::SCF_NMAX)
@@ -739,6 +800,14 @@ namespace ModuleESolver
     template <typename TK, typename TR>
     void ESolver_KS_LCAO<TK, TR>::eachiterfinish(int iter)
 {
+    // mix density matrix
+    if (GlobalV::MIXING_RESTART > 0 && iter >= GlobalV::MIXING_RESTART && GlobalV::MIXING_DMR )
+    {
+        elecstate::DensityMatrix<TK, double>* dm
+                    = dynamic_cast<elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM();
+        this->p_chgmix->mix_dmr(dm);
+    }
+
     //-----------------------------------
     // save charge density
     //-----------------------------------
@@ -824,6 +893,12 @@ namespace ModuleESolver
         }
     }
 
+    bool out_exc = true;    // tmp, add parameter!
+    if (GlobalV::out_mat_xc)
+        ModuleIO::write_Vxc<TK, TR>(GlobalV::NSPIN, GlobalV::NLOCAL, GlobalV::DRANK,
+            *this->psi, GlobalC::ucell, this->sf, *this->pw_rho, *this->pw_rhod, GlobalC::ppcell.vloc,
+            *this->pelec->charge, this->UHM, this->LM, this->LOC, this->kv, this->pelec->wg, GlobalC::GridD);
+
 #ifdef __EXX
     if (GlobalC::exx_info.info_global.cal_exx) // Peize Lin add if 2022.11.14
     {
@@ -896,6 +971,12 @@ namespace ModuleESolver
     if (!GlobalV::CAL_FORCE && !GlobalV::CAL_STRESS)
     {
         RA.delete_grid();
+    }
+    if(GlobalV::qo_switch)
+    {
+        toQO tqo(GlobalV::qo_basis, GlobalV::qo_strategy);
+        tqo.initialize(&GlobalC::ucell, this->kv.kvec_d);
+        tqo.calculate();
     }
 }
 

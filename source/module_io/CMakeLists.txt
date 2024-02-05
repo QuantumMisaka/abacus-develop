@@ -27,7 +27,9 @@ list(APPEND objects
     output_log.cpp
     output_rho.cpp
     output_potential.cpp
+    output_radial.cpp
     parameter_pool.cpp
+    para_json.cpp
 )
 
 list(APPEND objects_advanced
@@ -52,7 +54,6 @@ if(ENABLE_LCAO)
       read_dm.cpp
       read_wfc_nao.cpp
       write_wfc_nao.cpp
-      write_HS.cpp
       write_dm.cpp
       dos_nao.cpp
       output_dm.cpp
@@ -60,6 +61,8 @@ if(ENABLE_LCAO)
       sparse_matrix.cpp
       file_reader.cpp
       csr_reader.cpp
+      to_qo.cpp
+      to_qo_tools.cpp
   )
   list(APPEND objects_advanced
       unk_overlap_lcao.cpp
@@ -92,4 +95,8 @@ endif()
 if(BUILD_TESTING)
   add_subdirectory(test)
   add_subdirectory(test_serial)
+endif()
+
+if(ENABLE_RAPIDJSON)
+  add_subdirectory(json_output)
 endif()

@@ -211,3 +211,17 @@ AddTest(
   ../memory.cpp ../libm/branred.cpp ../libm/sincos.cpp ../inverse_matrix.cpp ../lapack_connector.h
   LIBS ${math_libs} formatter device
 )
+
+AddTest(
+  TARGET assoc_laguerre_test
+  SOURCES assoc_laguerre_test.cpp ../assoc_laguerre.cpp ../tool_quit.cpp ../global_variable.cpp ../global_file.cpp ../global_function.cpp ../memory.cpp ../timer.cpp
+  LIBS ${math_libs} formatter
+)
+
+if(ENABLE_GOOGLEBENCH)
+  AddTest(
+    TARGET perf_sphbes
+    LIBS formatter
+    SOURCES perf_sphbes_test.cpp ../math_sphbes.cpp ../timer.cpp 
+  )
+endif()
