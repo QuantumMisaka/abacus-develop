@@ -421,6 +421,46 @@
 
 ---
 
+### ELPA GPU 构建修复 - 向后兼容与变量传递
+
+**问题现象**：在启用 `--enable-cuda` 且指定 `--gpu-ver` 后，ELPA 仍以 CPU 版本安装，未进入 NVIDIA GPU 分支。
+
+**根因定位**：
+- 新架构将命令行选项解析为小写键并写入 `CONFIG_CACHE`（例如 `enable_cuda`、`GPUVER`），而阶段脚本（如 `stage3/install_elpa.sh`）仍读取大写环境变量（`ENABLE_CUDA`、`ARCH_NUM`）。
+- 主流程 `config_export_to_env` 未将 `CONFIG_CACHE[enable_cuda]` 映射导出为 `ENABLE_CUDA`，且 `ARCH_NUM` 未在验证后保证导出，导致 ELPA 脚本无法感知 GPU 标志与计算能力。
+
+**最小改动修复（已实施）**：
+- 在 `config_manager.sh`：
+  - 在 `config_export_to_env` 阶段，将 `CONFIG_CACHE[enable_cuda]` 向后兼容导出为 `ENABLE_CUDA`（仅当显式设置时导出）。
+  - 在 `config_validate` 成功解析并校验 `GPUVER` 后，导出 `ARCH_NUM` 到环境，确保阶段脚本读取到已验证的计算能力。
+- 在 `stage3/install_elpa.sh`：
+  - 兼容读取 `ENABLE_CUDA` 或 `enable_cuda`，统一为局部变量 `gpu_enabled`；任一为 `__TRUE__` 即进入 NVIDIA 分支。
+  - `--with-NVIDIA-GPU-compute-capability` 仅使用已验证的 `ARCH_NUM`；移除对未导出的缓存变量的回退，避免生成空或不一致的能力字符串。
+
+**改动位置**：
+- `scripts/lib/config_manager.sh`：`config_export_to_env()` 与 `config_validate()`。
+- `scripts/stage3/install_elpa.sh`：GPU 分支检测与 `configure` 参数组装。
+
+**变量传递流程（修复后）**：
+- 入口脚本（如 `toolchain_gnu.sh`）传入：`--enable-cuda`、`--gpu-ver="75"`。
+- `config_parse_arguments` → 写入 `CONFIG_CACHE[enable_cuda]=__TRUE__`、`CONFIG_CACHE[GPUVER]="75"`。
+- `config_validate` → 校验并规范化 `GPUVER`，设置并导出 `ARCH_NUM="75"`。
+- `config_export_to_env` → 向后兼容导出 `ENABLE_CUDA=__TRUE__`。
+- 调用 `stage3/install_elpa.sh` → 读取 `gpu_enabled` 与 `ARCH_NUM`，配置 `--enable-nvidia-gpu-kernels` 与 `--with-NVIDIA-GPU-compute-capability=75`，安装到 `elpa/nvidia` 目录。
+
+**验证建议**：
+- 运行：`./install_abacus_toolchain_new.sh --enable-cuda --gpu-ver=75 --install-all --dry-run`
+  - 在摘要与环境导出中确认存在 `ENABLE_CUDA=__TRUE__`、`ARCH_NUM=75`。
+- 实际安装后检查：`$INSTALLDIR/elpa/nvidia` 是否存在；`config.log` 中是否包含 `--enable-nvidia-gpu-kernels` 与正确的 compute capability。
+- 查看持久化：`toolchain.env` 中应包含 `ENABLE_CUDA` 与 `ARCH_NUM`。
+
+**边界情况与兼容性说明**：
+- `GPUVER` 支持单值或逗号分隔的多架构（例如 `70,75,80`）；`config_validate` 会统一规范并校验格式。
+- 当启用 HIP（`--enable-hip`）时与 CUDA 互斥；验证器会报冲突并给出解决建议。
+- CUDA 工具链检测仍由阶段脚本与系统检查负责（例如 `nvcc`、`CUDA_HOME` 等）；本修复不改变既有探测策略，仅确保变量传递一致。
+
+---
+
 ### 2. config_validator.sh - 配置验证器
 **主要职责**：
 - 验证配置选项的逻辑一致性
