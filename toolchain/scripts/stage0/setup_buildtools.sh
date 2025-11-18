@@ -30,10 +30,10 @@ if [ "${with_intel}" != "__DONTUSE__" ]; then
   fi
   FFLAGS="${CFLAGS}"
 elif [ "${with_amd}" != "__DONTUSE__" ]; then
-  CFLAGS="-O2 -fPIC -fno-omit-frame-pointer -fopenmp -g -mtune=${TARGET_CPU}"
+  CFLAGS="-O2 -fPIC -fopenmp -g -mtune=${TARGET_CPU}"
   FFLAGS="${CFLAGS}"
 else
-  CFLAGS="-O2 -fPIC -fno-omit-frame-pointer -fopenmp -g -mtune=${TARGET_CPU}"
+  CFLAGS="-O2 -fPIC -fno-omit-frame-pointer -fopenmp -g -mtune=${TARGET_CPU} ${TSANFLAGS}"
   FFLAGS="${CFLAGS} -fbacktrace"
 fi
 CXXFLAGS="${CFLAGS}"
@@ -57,7 +57,7 @@ else
   export FCFLAGS
   export CXXFLAGS
 fi
-export LDFLAGS=""
+export LDFLAGS="${TSANFLAGS}"
 
 # get system arch information using OpenBLAS prebuild
 ${SCRIPTDIR}/get_openblas_arch.sh

@@ -67,8 +67,6 @@ case "${with_mpich}" in
             [ -d mpich-${mpich_ver} ] && rm -rf mpich-${mpich_ver}
             tar -xzf ${mpich_pkg}
             cd mpich-${mpich_ver}
-            rm -f modules/libfabric/config.status modules/libfabric/Makefile modules/libfabric/config.log modules/libfabric/libtool modules/libfabric/config.cache || true
-            rm -f modules/yaksa/config.status modules/yaksa/Makefile modules/yaksa/config.log modules/yaksa/libtool modules/yaksa/config.cache || true
             unset F90
             unset F90FLAGS
 
@@ -84,22 +82,14 @@ case "${with_mpich}" in
                 FFLAGS="${FCFLAGS} ${compat_flag}" \
                 FCFLAGS="${FCFLAGS} ${compat_flag}" \
                 LDFLAGS="${LDFLAGS}" \
+                --without-x \
+                --enable-gl=no \
+                --with-device=${MPICH_DEVICE} \
                 --enable-tsan=no \
                 --enable-asan=no \
                 --enable-lsan=no \
                 --enable-ubsan=no \
-                --without-x \
-                --enable-gl=no \
-                --with-device=${MPICH_DEVICE} \
                 > configure.log 2>&1 || tail -n ${LOG_LINES} configure.log
-            if grep -q "-fsanitize=thread" modules/libfabric/config.log 2>/dev/null; then
-                echo "WARNING: libfabric configured with -fsanitize=thread; this may cause __tsan_* link errors" >&2
-                tail -n ${LOG_LINES} modules/libfabric/config.log || true
-            fi
-            if grep -q "-fsanitize=thread" modules/yaksa/config.log 2>/dev/null; then
-                echo "WARNING: yaksa configured with -fsanitize=thread; this may cause __tsan_* link errors" >&2
-                tail -n ${LOG_LINES} modules/yaksa/config.log || true
-            fi
             make -j $(get_nprocs) > make.log 2>&1 || tail -n ${LOG_LINES} make.log
             make install > install.log 2>&1 || tail -n ${LOG_LINES} install.log
             cd ..
@@ -107,22 +97,19 @@ case "${with_mpich}" in
         fi
         if [ "${PACK_RUN}" = "__TRUE__" ]; then
             echo "--pack-run mode specified, skip system check"
-        else
-            check_dir "${pkg_install_dir}/bin"
-            check_dir "${pkg_install_dir}/lib"
-            check_dir "${pkg_install_dir}/include"
-            if ldd "${pkg_install_dir}/lib/libmpi.so" | grep -q tsan; then
-                echo "WARNING: libmpi.so links to libtsan which is unexpected in default build" >&2
-            fi
-            check_install ${pkg_install_dir}/bin/mpiexec "mpich" && MPIRUN="${pkg_install_dir}/bin/mpiexec" || exit 1
-            check_install ${pkg_install_dir}/bin/mpicc "mpich" && MPICC="${pkg_install_dir}/bin/mpicc" || exit 1
-            check_install ${pkg_install_dir}/bin/mpicxx "mpich" && MPICXX="${pkg_install_dir}/bin/mpicxx" || exit 1
-            check_install ${pkg_install_dir}/bin/mpifort "mpich" && MPIFC="${pkg_install_dir}/bin/mpifort" || exit 1
-            MPIFORT="${MPIFC}"
-            MPIF77="${MPIFC}"
-            MPICH_CFLAGS="-I'${pkg_install_dir}/include'"
-            MPICH_LDFLAGS="-L'${pkg_install_dir}/lib' -Wl,-rpath,'${pkg_install_dir}/lib'"
+            exit 0
         fi
+        check_dir "${pkg_install_dir}/bin"
+        check_dir "${pkg_install_dir}/lib"
+        check_dir "${pkg_install_dir}/include"
+        check_install ${pkg_install_dir}/bin/mpiexec "mpich" && MPIRUN="${pkg_install_dir}/bin/mpiexec" || exit 1
+        check_install ${pkg_install_dir}/bin/mpicc "mpich" && MPICC="${pkg_install_dir}/bin/mpicc" || exit 1
+        check_install ${pkg_install_dir}/bin/mpicxx "mpich" && MPICXX="${pkg_install_dir}/bin/mpicxx" || exit 1
+        check_install ${pkg_install_dir}/bin/mpifort "mpich" && MPIFC="${pkg_install_dir}/bin/mpifort" || exit 1
+        MPIFORT="${MPIFC}"
+        MPIF77="${MPIFC}"
+        MPICH_CFLAGS="-I'${pkg_install_dir}/include'"
+        MPICH_LDFLAGS="-L'${pkg_install_dir}/lib' -Wl,-rpath,'${pkg_install_dir}/lib'"
         ;;
     __SYSTEM__)
         echo "==================== Finding MPICH from system paths ===================="
