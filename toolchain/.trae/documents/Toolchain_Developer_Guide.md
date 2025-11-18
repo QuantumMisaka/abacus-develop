@@ -121,6 +121,18 @@ ABACUS toolchain 采用分层与模块化架构，主脚本专注流程编排，
 - 检查先行：在安装前进行系统与冲突预检；`--dry-run` 用于快速验证；`pack-run` 用于离线复现。
 - 贡献规范：小步提交与清晰描述；跨模块改动需同步更新文档与校验器。
 
+### Sanitizer 抑制文件（.supp）与环境集成
+- 目的：在启用 AddressSanitizer/LeakSanitizer（ASan/LSan）与 ThreadSanitizer（TSan）时，屏蔽第三方库或工具链已知的泄漏/竞态噪声，减少误报，提高诊断效率。
+- 生成位置：
+  - `scripts/stage0/install_gcc.sh:255–274` 生成 `install/lsan.supp` 与 `install/tsan.supp`
+  - `scripts/stage1/install_mpich.sh:190–196` 追加 MPICH 相关泄漏抑制条目到 `lsan.supp`
+- 环境导出：
+  - 在 `install/setup:12–13` 中导出 `LSAN_OPTIONS=suppressions=<path>` 与 `TSAN_OPTIONS=suppressions=<path>`，运行时自动生效
+- 使用建议：
+  - 优先在 ASan+LSan 模式下使用 `LSAN_OPTIONS` 的抑制文件；TSan 通过 `TSAN_OPTIONS` 使用抑制规则（如 `race:`、`deadlock:`、`mutex:`）
+  - 抑制项仅用于第三方与工具链已知噪声，不应用于掩盖自有代码问题；规则匹配尽量精确，避免过宽抑制
+  - 默认禁用 TSAN 的生产安装不会受 `.supp` 文件影响，可安全保留作为“随时可用”的调试设施
+
 ---
 
 ## 架构细节补充

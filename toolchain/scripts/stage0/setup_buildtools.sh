@@ -3,8 +3,6 @@
 # TODO: Review and if possible fix shellcheck errors.
 # shellcheck disable=all
 
-# Last Update in 2025-0310
-
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "${SCRIPT_NAME}")/.." && pwd -P)"
 
@@ -32,10 +30,10 @@ if [ "${with_intel}" != "__DONTUSE__" ]; then
   fi
   FFLAGS="${CFLAGS}"
 elif [ "${with_amd}" != "__DONTUSE__" ]; then
-  CFLAGS="-O2 -fPIC -fopenmp -g -mtune=${TARGET_CPU}"
+  CFLAGS="-O2 -fPIC -fno-omit-frame-pointer -fopenmp -g -mtune=${TARGET_CPU}"
   FFLAGS="${CFLAGS}"
 else
-  CFLAGS="-O2 -fPIC -fno-omit-frame-pointer -fopenmp -g -mtune=${TARGET_CPU} ${TSANFLAGS}"
+  CFLAGS="-O2 -fPIC -fno-omit-frame-pointer -fopenmp -g -mtune=${TARGET_CPU}"
   FFLAGS="${CFLAGS} -fbacktrace"
 fi
 CXXFLAGS="${CFLAGS}"
@@ -59,7 +57,7 @@ else
   export FCFLAGS
   export CXXFLAGS
 fi
-export LDFLAGS="${TSANFLAGS}"
+export LDFLAGS=""
 
 # get system arch information using OpenBLAS prebuild
 ${SCRIPTDIR}/get_openblas_arch.sh
