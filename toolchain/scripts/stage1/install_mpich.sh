@@ -81,14 +81,9 @@ case "${with_mpich}" in
                 MPICC="" \
                 FFLAGS="${FCFLAGS} ${compat_flag}" \
                 FCFLAGS="${FCFLAGS} ${compat_flag}" \
-                LDFLAGS="${LDFLAGS}" \
                 --without-x \
                 --enable-gl=no \
                 --with-device=${MPICH_DEVICE} \
-                --enable-tsan=no \
-                --enable-asan=no \
-                --enable-lsan=no \
-                --enable-ubsan=no \
                 > configure.log 2>&1 || tail -n ${LOG_LINES} configure.log
             make -j $(get_nprocs) > make.log 2>&1 || tail -n ${LOG_LINES} make.log
             make install > install.log 2>&1 || tail -n ${LOG_LINES} install.log
