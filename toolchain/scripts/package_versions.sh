@@ -101,20 +101,20 @@ libnpy_alt_sha256="43452a4db1e8c1df606c64376ea1e32789124051d7640e7e4e8518ab4f0fb
 
 # Branch packages cut with specific commits
 cereal_ver="22a1b36"
-cereal_sha256="ca3d544456f93ea3176eab85e2e7892063af45b20467bb4ad9c1c51068e521c6"
+cereal_sha256="a8171736e6b553dd6cd37919c13433b01f499d24d45af502975a9439728803e0"
 
 libcomm_ver="965bf90"
-libcomm_sha256="1d1626b833c51efa7ab844af140e022e063ea64389c9e47b168c24fcc05b7323"
+libcomm_sha256="d7b991465d98d7b715b484d86880bf3525b9bf0cc62c3e5d38b0f6d140f6b9d4"
 
 libri_ver="e6d78e0"
-libri_sha256="ead14f05b645f3d028e09f715abaa0e8fca3d1d6d61804239c4858b33397286a"
+libri_sha256="619b49a14047d7a167515d1f1d0fa2d82fbebd63b8cbd3181e07df6ed993a22c"
 
 rapidjson_ver="24b5e7a"
-rapidjson_sha256="2d2601a82d2d3b7e143a3c8d43ef616671391034bc46891a9816b79cf2d3e7a8"
+rapidjson_sha256="dcb57b11036cb8fc6b2a57a6aded68d52e9cfe543811bf4fa8941087f84e72d0"
 
 # NEP (Neural Evolution Potential) - CPU version
 nep_ver="629ec5d"
-nep_sha256="57803d2e98ca5c8ced09e3e8d21ac1a0dbd61dda1977997864195f8c54b9b1f9"
+nep_sha256="4d4d3c64211a2a39e5d5c795b77befbba987cc809786e0cd6abfa46d0f3bf8cb"
 
 # =============================================================================
 # Package Variable Loading Function
