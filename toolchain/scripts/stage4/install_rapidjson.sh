@@ -32,11 +32,8 @@ if [[ -z "$version_suffix" && -n "${ABACUS_TOOLCHAIN_VERSION_SUFFIX}" ]]; then
 fi
 # Load package variables with appropriate version
 load_package_vars "rapidjson" "$version_suffix"
-if [[ "${rapidjson_ver}" =~ ^[0-9a-f]{40}$ ]]; then
-    short_ver="${rapidjson_ver:0:7}"
-else
-    short_ver="${rapidjson_ver}"
-fi
+dirname="rapidjson-${rapidjson_ver}"
+filename="rapidjson-${rapidjson_ver}.tar.gz"
 source "${INSTALLDIR}"/toolchain.conf
 source "${INSTALLDIR}"/toolchain.env
 
@@ -49,19 +46,10 @@ cd "${BUILDDIR}"
 case "$with_rapidjson" in
     __INSTALL__)
         echo "==================== Installing RapidJSON ===================="
-        dirname="rapidjson-${short_ver}"
         pkg_install_dir="${INSTALLDIR}/$dirname"
         #pkg_install_dir="${HOME}/lib/rapidjson/${rapidjson_ver}"
         install_lock_file="${pkg_install_dir}/install_successful"
-        # url construction rules:
-        # - Branch names (master, main, develop) without v prefix
-        # - Version tags (e.g., 1.0.0) with v prefix
-        if [[ "${rapidjson_ver}" =~ ^[0-9a-f]{40}$ ]]; then
-            url="https://codeload.github.com/Tencent/rapidjson/tar.gz/${rapidjson_ver}"
-        else
-            url="https://codeload.github.com/Tencent/rapidjson/tar.gz/v${rapidjson_ver}"
-        fi
-        filename="rapidjson-${short_ver}.tar.gz"
+        url="https://codeload.github.com/Tencent/rapidjson/tar.gz/${rapidjson_ver}"
         if verify_checksums "${install_lock_file}"; then
             echo "$dirname is already installed, skipping it."
         else

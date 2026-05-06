@@ -30,13 +30,8 @@ if [[ -z "$version_suffix" && -n "${ABACUS_TOOLCHAIN_VERSION_SUFFIX}" ]]; then
 fi
 # Load package variables with appropriate version
 load_package_vars "cereal" "$version_suffix"
-if [[ "${cereal_ver}" =~ ^[0-9a-f]{40}$ ]]; then
-    short_ver="${cereal_ver:0:7}"
-else
-    short_ver="${cereal_ver}"
-fi
-dirname="cereal-${short_ver}"
-filename="cereal-${short_ver}.tar.gz"
+dirname="cereal-${cereal_ver}"
+filename="cereal-${cereal_ver}.tar.gz"
 source "${INSTALLDIR}"/toolchain.conf
 source "${INSTALLDIR}"/toolchain.env
 
@@ -52,14 +47,7 @@ case "$with_cereal" in
         pkg_install_dir="${INSTALLDIR}/$dirname"
         #pkg_install_dir="${HOME}/lib/cereal/${cereal_ver}"
         install_lock_file="${pkg_install_dir}/install_successful"
-        # url construction rules:
-        # - Branch names (master, main, develop) without v prefix
-        # - Version tags (e.g., 1.0.0) with v prefix
-        if [[ "${cereal_ver}" =~ ^[0-9a-f]{40}$ ]]; then
-            url="https://codeload.github.com/USCiLab/cereal/tar.gz/${cereal_ver}"
-        else
-            url="https://codeload.github.com/USCiLab/cereal/tar.gz/v${cereal_ver}"
-        fi
+        url="https://codeload.github.com/USCiLab/cereal/tar.gz/${cereal_ver}"
         if verify_checksums "${install_lock_file}"; then
             echo "$dirname is already installed, skipping it."
         else
