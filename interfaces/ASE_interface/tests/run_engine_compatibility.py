@@ -24,7 +24,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 CASES = {
-    'latest': {'scf.py': 1, 'relax.py': 1, 'md.py': 1, 'native_md.py': 1,
+    'latest': {'scf.py': 1, 'relax.py': 1, 'md.py': 1, 'native_md.py': 3,
                'band.py': 1, 'magnetic.py': 3, 'socket_handoff.py': 1},
     'legacy': {'scf.py': 1, 'relax.py': 1, 'md.py': 1, 'native_md.py': 1,
                'band.py': 1, 'magnetic.py': 3, 'native_md_generated.py': 1},
